@@ -3,3 +3,4 @@ pandas
 pypdf
 scikit-multilearn
 tqdm
+scikit-learn
