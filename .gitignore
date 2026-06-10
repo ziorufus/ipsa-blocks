@@ -5,3 +5,4 @@ _old
 dots
 .DS_Store
 venv
+data-orig/*.pdf
