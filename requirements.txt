@@ -1,0 +1,5 @@
+numpy
+pandas
+pypdf
+scikit-multilearn
+tqdm

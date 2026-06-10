@@ -4,3 +4,4 @@ _old
 *.gsheet
 dots
 .DS_Store
+venv
