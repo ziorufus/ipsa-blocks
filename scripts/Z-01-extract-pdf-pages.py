@@ -57,6 +57,11 @@ def main() -> None:
         action="store_true",
         help="Allow the same page to be selected multiple times (useful if N > total pages).",
     )
+    ap.add_argument(
+        "--exclude",
+        default=None,
+        help="Path to a CSV file (same format as the manifest) whose pages will be excluded from sampling.",
+    )
     args = ap.parse_args()
 
     root = Path(args.root).expanduser().resolve()
@@ -76,6 +81,17 @@ def main() -> None:
     global_index, total_pages = build_global_index(pdfs)
     if total_pages == 0:
         raise SystemExit("Found PDFs, but none could be read (0 total pages).")
+
+    if args.exclude:
+        exclude_path = Path(args.exclude).expanduser().resolve()
+        excluded: set[tuple[str, int]] = set()
+        with open(exclude_path, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                excluded.add((row["source_pdf"], int(row["source_page_1based"])))
+        before = len(global_index)
+        global_index = [(p, i) for (p, i) in global_index if (str(p), i + 1) not in excluded]
+        total_pages = len(global_index)
+        print(f"Excluded {before - total_pages} pages via --exclude; {total_pages} remaining.")
 
     n = args.num_pages
 
