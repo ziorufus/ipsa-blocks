@@ -6,11 +6,17 @@ cd "$SCRIPT_DIR" || exit 1
 echo "### Running A-01-create-gold.py"
 python3 A-01-create-gold.py \
   --json ../data-final/gold.json \
-  --dots ../data-orig/dots/ \
+  --dots ../dots/ \
   ../data-final/gold.csv \
   ../data-orig/alessio.csv \
   ../data-orig/claudia.csv \
   ../data-orig/samuele.csv
+
+echo "### Running A-02-aggiungi-legislatura.py"
+python3 A-02-aggiungi-legislatura.py \
+  --json ../data-final/gold.json \
+  --csv ../data-orig/gold-resoconti-2-leg.csv \
+  --out ../data-final/gold-leg.json
 
 echo "### Running B-01-clean.py"
 python3 B-01-clean.py \
