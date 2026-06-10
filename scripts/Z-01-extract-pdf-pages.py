@@ -42,28 +42,7 @@ def build_global_index(pdf_paths: List[Path]) -> Tuple[List[Tuple[Path, int]], i
 
     return index, total
 
-def main():
 
-    ap = argparse.ArgumentParser()
-    ap.add_argument("root")
-    args = ap.parse_args()
-
-    root = Path(args.root).expanduser().resolve()
-
-    pdfs = find_pdfs(root)
-
-    global_index, total_pages = build_global_index(pdfs)
-
-    print(f"Totale pagine: {total_pages}")
-
-
-if __name__ == "__main__":
-    main()
-
-
-
-
-"""
 def main() -> None:
     ap = argparse.ArgumentParser(
         description="Randomly extract a total of N pages from PDFs under a folder (recursively)."
@@ -161,4 +140,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-"""
