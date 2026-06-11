@@ -50,7 +50,7 @@ def format_page(page: dict, include_labels: bool) -> dict:
         {"text": block.get("text", ""), "label": block.get("label", "") if include_labels else ""}
         for block in page.get("blocks", [])
     ]
-    return {"page": page["page"], "blocks": blocks}
+    return {"blocks": blocks}
 
 
 def label_counts(pages: list, all_labels: list[str]) -> dict[str, int]:
