@@ -80,6 +80,13 @@ def main() -> None:
         metavar="RATIO",
         help="Fraction of pages assigned to training set",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        metavar="INT",
+        help="Random seed for reproducible stratification",
+    )
     args = parser.parse_args()
 
     if not (0.0 < args.train_ratio < 1.0):
@@ -102,6 +109,7 @@ def main() -> None:
         n_splits=2,
         order=2,
         sample_distribution_per_fold=[test_ratio, args.train_ratio],
+        random_state=args.seed,
     )
     train_idx, test_idx = next(stratifier.split(X_dummy, Y))
 
