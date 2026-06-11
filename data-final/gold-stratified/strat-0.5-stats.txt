@@ -1,0 +1,25 @@
+Label                          Total    Train  Train%     Test   Test%
+--------------------------------------------------------------------
+  B-article                      156       72   46.2%       84   53.8%
+  B-description                  217      121   55.8%       96   44.2%
+  B-footer                        48       23   47.9%       25   52.1%
+  B-header                       295      146   49.5%      149   50.5%
+  B-other                         58       31   53.4%       27   46.6%
+  B-presidencydeclaration         14        5   35.7%        9   64.3%
+  B-speech                      1214      637   52.5%      577   47.5%
+  B-speechnotext                  39       19   48.7%       20   51.3%
+  B-text                         116       61   52.6%       55   47.4%
+  B-title                        132       55   41.7%       77   58.3%
+  H-speech                       246      120   48.8%      126   51.2%
+  H-text                           8        5   62.5%        3   37.5%
+  I-article                      279      121   43.4%      158   56.6%
+  I-description                    8        5   62.5%        3   37.5%
+  I-footer                         8        3   37.5%        5   62.5%
+  I-header                       746      353   47.3%      393   52.7%
+  I-other                        345      147   42.6%      198   57.4%
+  I-speech                      2652     1342   50.6%     1310   49.4%
+  I-speechnotext                  12        3   25.0%        9   75.0%
+  I-text                         241      115   47.7%      126   52.3%
+  N-speech                        94       57   60.6%       37   39.4%
+  N-speechnotext                   1        0    0.0%        1  100.0%
+  U-speech                        75       45   60.0%       30   40.0%
