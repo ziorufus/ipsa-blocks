@@ -123,15 +123,25 @@ def main() -> None:
     test_counts = label_counts(test_pages, all_labels)
     total_counts = label_counts(pages, all_labels)
 
-    print(f"\n{'Label':<28} {'Total':>7}  {'Train':>7} {'Train%':>7}  {'Test':>7} {'Test%':>7}")
-    print("-" * 68)
+    stats_lines = [
+        f"{'Label':<28} {'Total':>7}  {'Train':>7} {'Train%':>7}  {'Test':>7} {'Test%':>7}",
+        "-" * 68,
+    ]
     for lbl in all_labels:
         tot = total_counts[lbl]
         tr = train_counts[lbl]
         te = test_counts[lbl]
         tr_pct = tr / tot * 100 if tot else 0
         te_pct = te / tot * 100 if tot else 0
-        print(f"  {lbl:<26} {tot:>7}  {tr:>7} {tr_pct:>6.1f}%  {te:>7} {te_pct:>6.1f}%")
+        stats_lines.append(f"  {lbl:<26} {tot:>7}  {tr:>7} {tr_pct:>6.1f}%  {te:>7} {te_pct:>6.1f}%")
+
+    stats_text = "\n".join(stats_lines)
+    print(f"\n{stats_text}")
+
+    stats_path = f"{args.output_prefix}-stats.txt"
+    with open(stats_path, "w", encoding="utf-8") as f:
+        f.write(stats_text + "\n")
+    print(f"\nSaved {stats_path}")
 
     outputs = [
         (f"{args.output_prefix}-train.json",       train_pages, True),
