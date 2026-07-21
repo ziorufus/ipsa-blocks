@@ -1,6 +1,9 @@
 numpy
 pandas
+Pillow
 pypdf
-scikit-multilearn
-tqdm
 scikit-learn
+scikit-multilearn
+torch
+tqdm
+transformers
