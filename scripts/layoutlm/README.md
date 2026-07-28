@@ -195,3 +195,58 @@ Le versioni dell’ambiente utilizzato per il test sono documentate in:
 ```text
 docs/layoutlm-environment.md
 ```
+
+## Dati gold del modello multiclasse
+
+La cartella contiene i dati gold utilizzati per l’addestramento e la
+valutazione del modello LayoutLMv3 + BiLSTM multiclasse.
+
+### Training set
+
+Il file `new_train.json` contiene il training set definitivo:
+
+- 410 pagine;
+- 9.012 blocchi;
+- 24 classi;
+- SHA-256: `f742f78bf5b83178b14326f7a1855a627ed8b676574f4b7b594b3dd5ba2eead6`.
+
+### Test set
+
+Il file `strat-250-test-bbox.json` contiene il test set definitivo:
+
+- 47 pagine;
+- 1.035 blocchi;
+- 22 classi presenti;
+- SHA-256: `453073e59ee0aa6b53484c32c93b766d18a476d32bae15dade0c0ef8d49a717d`.
+
+Il test set è mantenuto separato dal training set e viene utilizzato per
+la valutazione finale del modello.
+
+### Struttura dei dati
+
+Ciascun file contiene una lista di pagine. Ogni pagina comprende un
+identificativo nel campo `page` e una lista di blocchi OCR nel campo
+`blocks`. Per ogni blocco sono conservati testo, coordinate, categoria
+OCR, ordine ed etichetta gold.
+
+Le immagini non sono incorporate nei JSON. Durante l’addestramento
+vengono caricate da una directory separata e associate alle pagine
+attraverso il loro identificativo.
+
+### File della pipeline
+
+- `prepare_legislature.py`: prepara gli input a partire dagli output DoTS.
+- `train_layoutlmv3_bilstm.py`: addestra e valuta il modello.
+- `predict_layoutlmv3_bilstm.py`: applica il modello a nuove pagine.
+- `new_train.json`: gold del training multiclasse definitivo.
+- `strat-250-test-bbox.json`: gold del test multiclasse definitivo.
+
+### Verifica dell’integrità
+
+```bash
+shasum -a 256 \
+  new_train.json \
+  strat-250-test-bbox.json
+Per riprodurre integralmente l’addestramento multimodale sono necessarie
+anche le immagini originali delle pagine, che non sono incluse nella
+cartella.

@@ -1,0 +1,165 @@
+# Ontologia IPSA aggiornata per la pipeline LayoutLMv3 + speaker matching
+
+@prefix : <http://www.semanticweb.org/claudia/ontologies/2026/ipsa/> .
+@prefix ocd: <http://dati.camera.it/ocd/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix semparl: <http://ldf.fi/schema/semparl/> .
+@base <http://www.semanticweb.org/claudia/ontologies/2026/ipsa/> .
+
+<http://www.semanticweb.org/claudia/ontologies/2026/ipsa> rdf:type owl:Ontology ;
+    owl:imports ocd: ,
+                semparl: ;
+    rdfs:comment "Ontologia IPSA aggiornata per la generazione automatica di istanze da classificazione dei blocchi e matching degli speaker."@it .
+
+#################################################################
+#    Object Properties
+#################################################################
+
+ocd:rif_seduta rdfs:domain :Block .
+
+semparl:speaker rdf:type owl:ObjectProperty ;
+    rdfs:domain :Block ;
+    rdfs:range ocd:persona ;
+    rdfs:comment "Usare per blocchi speech o speechnotext solo quando la persona è identificata in modo univoco."@it .
+
+:Author rdf:type owl:ObjectProperty ;
+    rdfs:domain :Block ;
+    rdfs:range ocd:persona ;
+    rdfs:comment "Usare preferibilmente per blocchi con :hasBlockType :article o :text."@it .
+
+:presidenza rdf:type owl:ObjectProperty ;
+    rdfs:domain :Block ;
+    rdfs:range ocd:persona ;
+    rdfs:comment "Usare preferibilmente per blocchi con :hasBlockType :presidencydeclaration."@it .
+
+:hasBlockType rdf:type owl:ObjectProperty ;
+    rdfs:domain :Block ;
+    rdfs:range :FunctionalBlockType .
+
+:hasPage rdf:type owl:ObjectProperty ;
+    rdfs:domain [
+        rdf:type owl:Class ;
+        owl:unionOf ( :Block :Paragraph )
+    ] ;
+    rdfs:range :Page ;
+    rdfs:comment "Collega un blocco o un paragrafo alla pagina in cui compare. Un blocco funzionale può essere collegato a più pagine."@it .
+
+:hasParagraph rdf:type owl:ObjectProperty ;
+    rdfs:domain :Block ;
+    rdfs:range :Paragraph ;
+    rdfs:comment "Collega un blocco funzionale ai paragrafi OCR che lo compongono."@it .
+
+ocd:rif_leg rdf:type owl:ObjectProperty ;
+    rdfs:domain :Page ;
+    rdfs:range ocd:legislatura ;
+    rdfs:comment "Proprietà OCD usata per collegare una pagina alla legislatura di riferimento."@it .
+
+#################################################################
+#    Data Properties
+#################################################################
+
+semparl:content rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Paragraph ;
+    rdfs:range xsd:string .
+
+semparl:endDate rdfs:domain :Block .
+
+semparl:orderNumber rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Block ;
+    rdfs:range xsd:integer .
+
+semparl:page rdfs:domain :Block .
+
+semparl:startDate rdfs:domain :Block .
+
+:orderID rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Paragraph ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Ordine del paragrafo OCR all'interno del blocco funzionale."@it .
+
+:pageNumber rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Page ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Numero progressivo della pagina nel dataset elaborato."@it .
+
+:sourcePageNumber rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Page ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Numero della pagina all'interno del documento sorgente."@it .
+
+:documentID rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Page ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Identificativo stabile del documento sorgente."@it .
+
+:ramo rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Page ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Ramo parlamentare di provenienza, per esempio camera o senato."@it .
+
+:imageFile rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Page ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Nome del file immagine utilizzato dalla pipeline visuale."@it .
+
+:sourceBlockSequence rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Paragraph ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Posizione del blocco OCR nella pagina sorgente."@it .
+
+:predictedLabel rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Paragraph ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Etichetta completa assegnata dal classificatore, inclusi i prefissi B, I, H, N o U."@it .
+
+:predictionConfidence rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Paragraph ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Probabilità associata all'etichetta scelta dal classificatore."@it .
+
+:ocrCategory rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Paragraph ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Categoria originaria assegnata dal sistema OCR."@it .
+
+:speakerLabel rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Block ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Nome completo della persona identificata oppure forma dello speaker estratta dal testo nei casi non risolti."@it .
+
+:authorLabel rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Block ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Forma testuale del nome dell'autore estratta dal documento."@it .
+
+#################################################################
+#    Classes
+#################################################################
+
+:Block rdf:type owl:Class .
+
+:Paragraph rdf:type owl:Class .
+
+:Page rdf:type owl:Class .
+
+ocd:legislatura rdf:type owl:Class .
+
+:FunctionalBlockType rdf:type owl:Class .
+
+#################################################################
+#    Functional block type individuals
+#################################################################
+
+:article rdf:type :FunctionalBlockType .
+:description rdf:type :FunctionalBlockType .
+:footer rdf:type :FunctionalBlockType .
+:header rdf:type :FunctionalBlockType .
+:other rdf:type :FunctionalBlockType .
+:presidencydeclaration rdf:type :FunctionalBlockType .
+:speech rdf:type :FunctionalBlockType .
+:speechnotext rdf:type :FunctionalBlockType .
+:text rdf:type :FunctionalBlockType .
+:title rdf:type :FunctionalBlockType .
