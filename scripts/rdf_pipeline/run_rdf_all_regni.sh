@@ -22,9 +22,9 @@ else
     PY="python3"
 fi
 
-GENERATOR="$SCRIPT_DIR/scripts/generate_rdf.py"
-LEGISLATURES="$SCRIPT_DIR/resources/legislature.tsv"
-ONTOLOGY="$SCRIPT_DIR/ontology/ontologia_ipsa_pipeline.ttl"
+GENERATOR="$SCRIPT_DIR/generate_rdf.py"
+LEGISLATURES="$SCRIPT_DIR/legislature.tsv"
+ONTOLOGY="$SCRIPT_DIR/ontologia_ipsa_pipeline.ttl"
 
 # DRY_RUN=1: mostra cosa verrebbe generato
 # DRY_RUN=0: genera realmente i TTL

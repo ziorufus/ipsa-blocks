@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 # La directory della pipeline viene ricavata dalla posizione dello script.
-PIPELINE = Path(__file__).resolve().parent.parent
+PIPELINE = Path(__file__).resolve().parent
 
 # Directory contenente regno_01_full, regno_02_full, ecc.
 # Può essere sovrascritta tramite IPSA_DATA_ROOT.
@@ -25,9 +25,9 @@ BASE_DIR = Path(
     )
 ).expanduser().resolve()
 
-GENERATOR = PIPELINE / "scripts/generate_rdf.py"
-ONTOLOGY = PIPELINE / "ontology/ontologia_ipsa_pipeline.ttl"
-LEGISLATURES = PIPELINE / "resources/legislature.tsv"
+GENERATOR = PIPELINE / "generate_rdf.py"
+ONTOLOGY = PIPELINE / "ontologia_ipsa_pipeline.ttl"
+LEGISLATURES = PIPELINE / "legislature.tsv"
 
 
 def normalize_regno(value: str) -> str:

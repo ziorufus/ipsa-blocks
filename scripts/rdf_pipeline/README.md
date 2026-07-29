@@ -6,20 +6,17 @@ Questa cartella contiene la pipeline per convertire le predizioni dei blocchi pa
 
 ```text
 scripts/rdf_pipeline/
-├── ontology/
-│   └── ontologia_ipsa_pipeline.ttl
-├── resources/
-│   └── legislature.tsv
-├── scripts/
-│   ├── generate_rdf.py
-│   └── run_rdf_regno.py
+├── generate_rdf.py
+├── legislature.tsv
+├── ontologia_ipsa_pipeline.ttl
 ├── run_rdf_all_regni.sh
+├── run_rdf_regno.py
 └── README.md
 ```
 
 ## File principali
 
-### `scripts/generate_rdf.py`
+### `generate_rdf.py`
 
 Genera il file RDF/Turtle a partire da:
 
@@ -28,7 +25,7 @@ Genera il file RDF/Turtle a partire da:
 * tabella di corrispondenza delle legislature;
 * ontologia IPSA.
 
-### `scripts/run_rdf_regno.py`
+### `run_rdf_regno.py`
 
 Esegue la generazione RDF per un singolo regno e un singolo ramo parlamentare.
 
@@ -46,11 +43,11 @@ Esegue la generazione RDF per Camera e Senato nei regni da `regno_01` a `regno_3
 
 Per impostazione predefinita viene eseguito in modalità simulazione (`DRY_RUN=1`).
 
-### `ontology/ontologia_ipsa_pipeline.ttl`
+### `ontologia_ipsa_pipeline.ttl`
 
 Contiene l’ontologia IPSA utilizzata per la rappresentazione RDF dei documenti parlamentari, delle pagine, dei blocchi e degli speaker.
 
-### `resources/legislature.tsv`
+### `legislature.tsv`
 
 Contiene il mapping tra gli identificativi normalizzati delle legislature e le relative URI.
 
@@ -131,7 +128,7 @@ generate_rdf.log
 La sintassi generale è:
 
 ```bash
-python3 scripts/rdf_pipeline/scripts/run_rdf_regno.py \
+python3 scripts/rdf_pipeline/run_rdf_regno.py \
   --regno NUMERO \
   --ramo camera|senato
 ```
@@ -148,7 +145,7 @@ regno_02
 
 ```bash
 IPSA_DATA_ROOT=/percorso/dei/dati \
-python3 scripts/rdf_pipeline/scripts/run_rdf_regno.py \
+python3 scripts/rdf_pipeline/run_rdf_regno.py \
   --regno 02 \
   --ramo camera
 ```
@@ -157,7 +154,7 @@ python3 scripts/rdf_pipeline/scripts/run_rdf_regno.py \
 
 ```bash
 IPSA_DATA_ROOT=/percorso/dei/dati \
-python3 scripts/rdf_pipeline/scripts/run_rdf_regno.py \
+python3 scripts/rdf_pipeline/run_rdf_regno.py \
   --regno 02 \
   --ramo senato
 ```
@@ -166,7 +163,7 @@ python3 scripts/rdf_pipeline/scripts/run_rdf_regno.py \
 
 ```bash
 IPSA_DATA_ROOT=/percorso/dei/dati \
-python3 scripts/rdf_pipeline/scripts/run_rdf_regno.py \
+python3 scripts/rdf_pipeline/run_rdf_regno.py \
   --regno 02 \
   --ramo senato \
   --speaker-matches \
@@ -179,7 +176,7 @@ Per mostrare il comando senza generare alcun file:
 
 ```bash
 IPSA_DATA_ROOT=/percorso/dei/dati \
-python3 scripts/rdf_pipeline/scripts/run_rdf_regno.py \
+python3 scripts/rdf_pipeline/run_rdf_regno.py \
   --regno 02 \
   --ramo camera \
   --dry-run
@@ -193,7 +190,7 @@ Per rigenerarlo:
 
 ```bash
 IPSA_DATA_ROOT=/percorso/dei/dati \
-python3 scripts/rdf_pipeline/scripts/run_rdf_regno.py \
+python3 scripts/rdf_pipeline/run_rdf_regno.py \
   --regno 02 \
   --ramo camera \
   --overwrite
@@ -254,7 +251,7 @@ Per il singolo regno:
 
 ```bash
 /home/claudia/layoutlm_env/bin/python \
-  scripts/rdf_pipeline/scripts/run_rdf_regno.py \
+  scripts/rdf_pipeline/run_rdf_regno.py \
   --regno 02 \
   --ramo camera
 ```
@@ -279,8 +276,8 @@ Per controllare gli script Python:
 
 ```bash
 python3 -m py_compile \
-  scripts/rdf_pipeline/scripts/generate_rdf.py \
-  scripts/rdf_pipeline/scripts/run_rdf_regno.py
+  scripts/rdf_pipeline/generate_rdf.py \
+  scripts/rdf_pipeline/run_rdf_regno.py
 ```
 
 Per controllare il launcher Bash:
