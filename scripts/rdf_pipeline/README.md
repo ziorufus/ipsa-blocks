@@ -25,6 +25,25 @@ Genera il file RDF/Turtle a partire da:
 * tabella di corrispondenza delle legislature;
 * ontologia IPSA.
 
+#### Ricostruzione degli `H-speech`
+
+La risoluzione degli `H-speech` viene eseguita direttamente da
+`generate_rdf.py` durante la ricostruzione dei blocchi funzionali.
+
+Un blocco `H-speech` viene collegato allo speech della pagina precedente
+quando:
+
+* appartiene allo stesso documento;
+* la pagina sorgente è immediatamente successiva;
+* prima dell’`H-speech` compaiono soltanto header o footer;
+* l’ultimo blocco di contenuto della pagina precedente è di tipo `speech`.
+
+In questo caso, i paragrafi delle due pagine vengono aggregati nello stesso
+`ipsa:Block`, che mantiene lo speaker associato al precedente `B-speech`.
+
+Se queste condizioni non sono soddisfatte, l’`H-speech` apre un blocco
+autonomo e viene segnalato nel riepilogo come `H-speech` orfano.
+
 ### `run_rdf_regno.py`
 
 Esegue la generazione RDF per un singolo regno e un singolo ramo parlamentare.
@@ -45,7 +64,11 @@ Per impostazione predefinita viene eseguito in modalità simulazione (`DRY_RUN=1
 
 ### `ontologia_ipsa_pipeline.ttl`
 
-Contiene l’ontologia IPSA utilizzata per la rappresentazione RDF dei documenti parlamentari, delle pagine, dei blocchi e degli speaker.
+Contiene l’ontologia IPSA utilizzata per rappresentare pagine, blocchi,
+paragrafi, speaker e presidenze.
+
+Per la descrizione dettagliata del modello concettuale, delle classi e delle
+proprietà, si veda [ONTOLOGY.md](ONTOLOGY.md).
 
 ### `legislature.tsv`
 

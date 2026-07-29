@@ -71,8 +71,6 @@ semparl:orderNumber rdf:type owl:DatatypeProperty ;
     rdfs:domain :Block ;
     rdfs:range xsd:integer .
 
-semparl:page rdfs:domain :Block .
-
 semparl:startDate rdfs:domain :Block .
 
 :orderID rdf:type owl:DatatypeProperty ;
@@ -129,6 +127,12 @@ semparl:startDate rdfs:domain :Block .
     rdfs:domain :Block ;
     rdfs:range xsd:string ;
     rdfs:comment "Nome completo della persona identificata oppure forma dello speaker estratta dal testo nei casi non risolti."@it .
+
+:presidingRole rdf:type owl:DatatypeProperty ;
+    rdfs:domain :Block ;
+    rdfs:range rdf:langString ;
+    rdfs:label "ruolo nella presidenza"@it ;
+    rdfs:comment "Ruolo assunto dalla persona che presiede la seduta, per esempio presidente o vice-presidente."@it .
 
 :authorLabel rdf:type owl:DatatypeProperty ;
     rdfs:domain :Block ;

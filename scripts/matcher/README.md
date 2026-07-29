@@ -21,6 +21,7 @@ scripts/matcher/
 ├── persone.tsv
 ├── persone_e_senatori.tsv
 ├── prepare_speaker_manual_review.py
+├── resolve_document_context.py
 ├── run_matcher_regni_mancanti.sh
 ├── senatori.tsv
 ├── senatori_con_legislatura.tsv
@@ -34,6 +35,7 @@ scripts/matcher/
 * `assegna_legislature_senatori.py`: associa ai mandati dei senatori le legislature temporalmente compatibili. Produce `senatori_con_legislatura.tsv`, un file con i record da controllare e, facoltativamente, l’anagrafica unificata `persone_e_senatori.tsv`.
 * `extract_speaker_review.py`: estrae da `speaker_matches.json` i casi ambigui e non assegnati, li collega ai blocchi di `predictions_multiclass.json` e genera i TSV per la revisione.
 * `prepare_speaker_manual_review.py`: combina le occorrenze problematiche con i candidati originali del matcher e produce il TSV finale da compilare manualmente.
+* `resolve_document_context.py`: risolve la persona che presiede la seduta a partire dai blocchi B-presidencydeclaration e associa tale persona ai successivi turni PRESIDENTE.
 
 
 ### Anagrafiche
@@ -405,3 +407,152 @@ Per controllare la sintassi dello script Bash:
 ```bash
 bash -n scripts/matcher/run_matcher_regni_mancanti.sh
 ```
+## Risoluzione della presidenza a livello di documento
+
+Lo script:
+
+```text
+resolve_document_context.py
+```
+
+completa il matching degli speaker utilizzando informazioni che possono essere ricostruite soltanto considerando l’ordine dei blocchi nell’intero documento.
+
+Deve essere eseguito **dopo** `match_speakers.py` e dopo l’eventuale aggiornamento di `nicknames.tsv`, ma **prima** della generazione RDF.
+
+L’ordine consigliato è:
+
+```text
+predictions_multiclass.json
+        ↓
+match_speakers.py
+        ↓
+speaker_matches.json
+        ↓
+eventuale revisione manuale e aggiornamento di nicknames.tsv
+        ↓
+resolve_document_context.py
+        ↓
+speaker_matches_context.json
+        ↓
+generate_rdf.py
+```
+
+### Funzioni dello script
+
+Lo script:
+
+* raggruppa le pagine per `ramo`, `legislatura` e `document_id`;
+* ordina le pagine e i blocchi secondo la loro posizione nel documento;
+* individua i blocchi `B-presidencydeclaration`;
+* estrae il nome della persona che presiede;
+* distingue il ruolo `presidente` dal ruolo `vice-presidente`;
+* associa il nome estratto all’anagrafica della Camera o del Senato;
+* mantiene una sola presidenza attiva alla volta;
+* sostituisce la presidenza corrente quando incontra una nuova dichiarazione;
+* interrompe la propagazione se una nuova dichiarazione non viene risolta in modo univoco;
+* associa la persona che presiede ai successivi blocchi `B-speech` il cui testo inizia con `PRESIDENTE` o `IL PRESIDENTE`;
+* conserva tutti i record già presenti in `speaker_matches.json`;
+* produce un nuovo JSON senza modificare gli input.
+
+Per esempio:
+
+```text
+PRESIDENZA DEL VICE-PRESIDENTE MAMIANI
+...
+PRESIDENTE. La seduta è aperta.
+```
+
+viene interpretato come:
+
+```text
+persona che presiede: Mamiani
+ruolo: vice-presidente
+speaker del turno PRESIDENTE: Mamiani
+```
+
+Il termine `PRESIDENTE` all’inizio del turno indica la persona che dirige la seduta in quel momento, anche quando la dichiarazione precedente la qualifica formalmente come `vice-presidente`.
+
+I turni che iniziano esplicitamente con `VICE-PRESIDENTE` non vengono risolti mediante questa propagazione e restano affidati al normale matching degli speaker.
+
+### Cambi di presidenza
+
+Nel corso dello stesso documento possono comparire più dichiarazioni:
+
+```text
+PRESIDENZA DEL PRESIDENTE FARINI
+...
+PRESIDENZA DEL VICE-PRESIDENTE MAMIANI
+...
+PRESIDENZA DEL PRESIDENTE FARINI
+```
+
+Ogni nuova dichiarazione sostituisce quella precedente. Se la nuova dichiarazione è ambigua, non contiene un nome estraibile oppure non produce un candidato univoco, la presidenza precedente viene disattivata per evitare attribuzioni errate.
+
+### Input
+
+Lo script richiede:
+
+* `--predictions-json`: il file `predictions_multiclass.json`;
+* `--speaker-matches`: il file `speaker_matches.json` prodotto dal matcher;
+* `--anagrafica-tsv`: `persone.tsv` per la Camera oppure `persone_e_senatori.tsv` per il Senato;
+* `--output`: il nuovo JSON con la presidenza risolta.
+
+Sono inoltre disponibili:
+
+* `--nicknames-tsv`: file opzionale con le varianti onomastiche;
+* `--fuzzy-threshold`: soglia del fuzzy matching, con lo stesso valore predefinito utilizzato da `match_speakers.py`.
+
+### Output
+
+È consigliato utilizzare un nome distinto dall’output originale:
+
+```text
+speaker_matches_context.json
+```
+
+Il file contiene:
+
+* tutti i record originali di `speaker_matches.json`;
+* i match relativi ai blocchi `B-presidencydeclaration`;
+* i turni `PRESIDENTE` risolti mediante il contesto documentale;
+* il campo `presiding_role`, con valore `presidente` oppure `vice-presidente`;
+* per i turni propagati, `source_presidency_page` e `source_presidency_block_seq`, che indicano la dichiarazione da cui deriva l’associazione.
+
+Il metodo assegnato ai turni risolti attraverso la presidenza è:
+
+```text
+presidency_context
+```
+
+### Esempio per la Camera
+
+```bash
+python3 scripts/matcher/resolve_document_context.py \
+  --predictions-json /percorso/regno_01_full/camera/predictions_multiclass.json \
+  --speaker-matches /percorso/regno_01_full/camera/speaker_matches.json \
+  --anagrafica-tsv scripts/matcher/persone.tsv \
+  --nicknames-tsv scripts/matcher/nicknames.tsv \
+  --output /percorso/regno_01_full/camera/speaker_matches_context.json
+```
+
+### Esempio per il Senato
+
+```bash
+python3 scripts/matcher/resolve_document_context.py \
+  --predictions-json /percorso/regno_01_full/senato/predictions_multiclass.json \
+  --speaker-matches /percorso/regno_01_full/senato/speaker_matches.json \
+  --anagrafica-tsv scripts/matcher/persone_e_senatori.tsv \
+  --nicknames-tsv scripts/matcher/nicknames.tsv \
+  --output /percorso/regno_01_full/senato/speaker_matches_context.json
+```
+
+### Controlli consigliati
+
+Prima di usare il nuovo JSON per la generazione RDF, è opportuno verificare nel riepilogo:
+
+* il numero delle dichiarazioni di presidenza individuate;
+* il numero delle presidenze risolte in modo univoco;
+* il numero dei turni `PRESIDENTE` risolti;
+* il numero dei turni `PRESIDENTE` rimasti senza contesto.
+
+Il file originale `speaker_matches.json` non viene sovrascritto.

@@ -76,6 +76,8 @@ class Stats:
     functional_blocks: int = 0
     paragraphs: int = 0
     cross_page_continuations: int = 0
+    hidden_speech_resolved: int = 0
+    orphan_h_speech: int = 0
     orphan_i: Counter[str] = field(default_factory=Counter)
     unknown_labels: Counter[str] = field(default_factory=Counter)
     missing_legislatures: set[str] = field(default_factory=set)
@@ -84,6 +86,11 @@ class Stats:
     speaker_no_candidate: int = 0
     speaker_no_record: int = 0
     speaker_unique_without_uri: int = 0
+    presidency_unique: int = 0
+    presidency_ambiguous: int = 0
+    presidency_no_candidate: int = 0
+    presidency_no_record: int = 0
+    presidency_unique_without_uri: int = 0
 
 
 def parse_args() -> argparse.Namespace:
@@ -355,6 +362,7 @@ def reconstruct_groups(
     for (ramo, legislatura, document_id), document_pages in documents.items():
         document_pages.sort(key=page_sort_key)
         previous_page_last_content_group: FunctionalGroup | None = None
+        previous_source_page: int | None = None
 
         for page in document_pages:
             page_number = safe_int(page.get("page"))
@@ -392,16 +400,31 @@ def reconstruct_groups(
                     predicted_label, stats
                 )
 
+                pages_are_adjacent = (
+                    previous_source_page is not None
+                    and source_page == previous_source_page + 1
+                )
+
                 continuing_current = (
                     prefix == "I"
                     and current_group is not None
                     and current_group.functional_type == functional_type
                 )
 
+                continuing_hidden_speech = (
+                    prefix == "H"
+                    and functional_type == "speech"
+                    and only_page_matter_so_far
+                    and pages_are_adjacent
+                    and previous_page_last_content_group is not None
+                    and previous_page_last_content_group.functional_type == "speech"
+                )
+
                 continuing_previous_page = (
                     prefix == "I"
                     and not continuing_current
                     and only_page_matter_so_far
+                    and pages_are_adjacent
                     and previous_page_last_content_group is not None
                     and previous_page_last_content_group.functional_type
                     == functional_type
@@ -409,6 +432,11 @@ def reconstruct_groups(
 
                 if continuing_current:
                     group = current_group
+                elif continuing_hidden_speech:
+                    group = previous_page_last_content_group
+                    current_group = group
+                    stats.hidden_speech_resolved += 1
+                    stats.cross_page_continuations += 1
                 elif continuing_previous_page:
                     group = previous_page_last_content_group
                     current_group = group
@@ -417,9 +445,14 @@ def reconstruct_groups(
                     orphan = prefix == "I"
                     if orphan:
                         stats.orphan_i[predicted_label or "<vuota>"] += 1
+                    if prefix == "H" and functional_type == "speech":
+                        stats.orphan_h_speech += 1
 
                     speaker_match = None
-                    if predicted_label == "B-speech":
+                    if predicted_label in {
+                        "B-speech",
+                        "B-presidencydeclaration",
+                    }:
                         speaker_match = match_lookup.get(
                             (page_number, block_seq)
                         )
@@ -451,8 +484,8 @@ def reconstruct_groups(
                     only_page_matter_so_far = False
                     last_content_group_on_page = group
 
-            if last_content_group_on_page is not None:
-                previous_page_last_content_group = last_content_group_on_page
+            previous_page_last_content_group = last_content_group_on_page
+            previous_source_page = source_page
 
     stats.functional_blocks = len(groups)
     stats.paragraphs = stats.source_blocks
@@ -534,6 +567,16 @@ def add_speaker_triples(
         stats.speaker_no_record += 1
         return
 
+    presiding_role = str(match.get("presiding_role") or "").strip()
+    if presiding_role:
+        graph.add(
+            (
+                block_uri,
+                BASE["presidingRole"],
+                Literal(presiding_role, lang="it"),
+            )
+        )
+
     candidates = match.get("candidates") or []
 
     if len(candidates) == 1:
@@ -578,6 +621,48 @@ def add_speaker_triples(
         stats.speaker_no_candidate += 1
 
 
+def add_presidency_triples(
+    graph: Graph,
+    block_uri: URIRef,
+    match: dict[str, Any] | None,
+    stats: Stats,
+) -> None:
+    """Collega la dichiarazione di presidenza solo a una persona univoca."""
+    if match is None:
+        stats.presidency_no_record += 1
+        return
+
+    presiding_role = str(match.get("presiding_role") or "").strip()
+    if presiding_role:
+        graph.add(
+            (
+                block_uri,
+                BASE["presidingRole"],
+                Literal(presiding_role, lang="it"),
+            )
+        )
+
+    candidates = match.get("candidates") or []
+
+    if len(candidates) == 1:
+        candidate = candidates[0]
+        person_uri = str(candidate.get("persona") or "").strip()
+
+        if person_uri:
+            graph.add(
+                (block_uri, BASE["presidenza"], URIRef(person_uri))
+            )
+            stats.presidency_unique += 1
+        else:
+            stats.presidency_unique_without_uri += 1
+        return
+
+    if len(candidates) > 1:
+        stats.presidency_ambiguous += 1
+    else:
+        stats.presidency_no_candidate += 1
+
+
 def decimal_literal(value: Any) -> Literal | None:
     if value is None or value == "":
         return None
@@ -620,6 +705,10 @@ def add_group_triples(
 
     if group.start_label == "B-speech":
         add_speaker_triples(
+            graph, block_uri, group.speaker_match, stats
+        )
+    elif group.start_label == "B-presidencydeclaration":
+        add_presidency_triples(
             graph, block_uri, group.speaker_match, stats
         )
 
@@ -711,9 +800,11 @@ def print_summary(stats: Stats, graph: Graph, output: Path) -> None:
     print(f"- blocchi OCR/paragrafi: {stats.source_blocks}")
     print(f"- blocchi funzionali: {stats.functional_blocks}")
     print(
-        "- continuazioni I-* collegate dalla pagina precedente: "
+        "- continuazioni tra pagine collegate: "
         f"{stats.cross_page_continuations}"
     )
+    print(f"- H-speech risolti: {stats.hidden_speech_resolved}")
+    print(f"- H-speech orfani: {stats.orphan_h_speech}")
     print(f"- I-* orfani: {sum(stats.orphan_i.values())}")
 
     for label, count in stats.orphan_i.most_common():
@@ -723,11 +814,21 @@ def print_summary(stats: Stats, graph: Graph, output: Path) -> None:
     print(f"- speaker ambigui: {stats.speaker_ambiguous}")
     print(f"- speaker senza candidato: {stats.speaker_no_candidate}")
     print(f"- B-speech senza record di matching: {stats.speaker_no_record}")
+    print(f"- presidenze con URI univoca: {stats.presidency_unique}")
+    print(f"- presidenze ambigue: {stats.presidency_ambiguous}")
+    print(f"- presidenze senza candidato: {stats.presidency_no_candidate}")
+    print(f"- dichiarazioni senza record: {stats.presidency_no_record}")
 
     if stats.speaker_unique_without_uri:
         print(
             "- speaker con candidato unico ma URI mancante: "
             f"{stats.speaker_unique_without_uri}"
+        )
+
+    if stats.presidency_unique_without_uri:
+        print(
+            "- presidenze con candidato unico ma URI mancante: "
+            f"{stats.presidency_unique_without_uri}"
         )
 
     if stats.unknown_labels:
