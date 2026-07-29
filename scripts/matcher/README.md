@@ -14,10 +14,13 @@ scripts/C-match_speakers.py
 
 ```text
 scripts/matcher/
+├── assegna_legislature_senatori.py
+├── extract_speaker_review.py
 ├── match_speakers.py
 ├── nicknames.tsv
 ├── persone.tsv
 ├── persone_e_senatori.tsv
+├── prepare_speaker_manual_review.py
 ├── run_matcher_regni_mancanti.sh
 ├── senatori.tsv
 ├── senatori_con_legislatura.tsv
@@ -28,6 +31,10 @@ scripts/matcher/
 
 * `match_speakers.py`: esegue l’estrazione e il matching degli speaker presenti nei blocchi predetti dal modello.
 * `run_matcher_regni_mancanti.sh`: applica automaticamente il matcher ai rami Camera e Senato dei regni da `regno_01` a `regno_30`.
+* `assegna_legislature_senatori.py`: associa ai mandati dei senatori le legislature temporalmente compatibili. Produce `senatori_con_legislatura.tsv`, un file con i record da controllare e, facoltativamente, l’anagrafica unificata `persone_e_senatori.tsv`.
+* `extract_speaker_review.py`: estrae da `speaker_matches.json` i casi ambigui e non assegnati, li collega ai blocchi di `predictions_multiclass.json` e genera i TSV per la revisione.
+* `prepare_speaker_manual_review.py`: combina le occorrenze problematiche con i candidati originali del matcher e produce il TSV finale da compilare manualmente.
+
 
 ### Anagrafiche
 
@@ -36,6 +43,41 @@ scripts/matcher/
 * `nicknames.tsv`: contiene forme alternative, pseudonimi e varianti dei nomi.
 * `senatori.tsv`: anagrafica originale dei senatori.
 * `senatori_con_legislatura.tsv`: anagrafica dei senatori integrata con l’informazione sulla legislatura.
+
+## Preparazione dell’anagrafica del Senato
+
+Lo script `assegna_legislature_senatori.py` assegna una o più legislature a ciascun mandato presente in `senatori.tsv`, verificando la sovrapposizione tra l’intervallo temporale del mandato e quello della legislatura.
+
+Lo script richiede:
+
+* `senatori.tsv`;
+* un TSV delle legislature con le colonne `legislatura`, `dataInizio` e `dataFine`;
+* il percorso di destinazione di `senatori_con_legislatura.tsv`;
+* il percorso di un TSV contenente i record non assegnabili automaticamente.
+
+Esempio:
+
+```bash
+python3 scripts/matcher/assegna_legislature_senatori.py \
+  --senatori scripts/matcher/senatori.tsv \
+  --legislature PERCORSO/legislature.tsv \
+  --output scripts/matcher/senatori_con_legislatura.tsv \
+  --review-output senatori_da_controllare.tsv
+```
+
+È possibile creare contemporaneamente l’anagrafica unificata utilizzata per il Senato:
+
+```bash
+python3 scripts/matcher/assegna_legislature_senatori.py \
+  --senatori scripts/matcher/senatori.tsv \
+  --legislature PERCORSO/legislature.tsv \
+  --output scripts/matcher/senatori_con_legislatura.tsv \
+  --review-output senatori_da_controllare.tsv \
+  --persone scripts/matcher/persone.tsv \
+  --combined-output scripts/matcher/persone_e_senatori.tsv
+```
+
+Il file indicato con `--review-output` contiene i record con date mancanti o non valide e quelli per i quali non è stata individuata alcuna sovrapposizione con una legislatura.
 
 ## Input
 
@@ -92,6 +134,120 @@ Il file temporaneo viene rinominato in `speaker_matches.json` soltanto dopo aver
 * il file esista e non sia vuoto;
 * il contenuto sia un JSON valido;
 * il livello principale del JSON contenga una lista.
+
+## Estrazione dei casi da revisionare
+
+Il matcher conserva in `speaker_matches.json` anche i casi che non possono essere risolti automaticamente.
+
+Sono considerati problematici:
+
+* `unassigned`: nessuna persona candidata;
+* `ambiguous`: più persone candidate.
+
+Lo script `extract_speaker_review.py` collega questi risultati ai blocchi originali di `predictions_multiclass.json` e aggiunge il testo precedente, il testo dello speaker e il testo successivo.
+
+Esempio:
+
+```bash
+python3 scripts/matcher/extract_speaker_review.py \
+  --predictions-json predictions_multiclass.json \
+  --speaker-matches speaker_matches.json \
+  --occurrences-output speaker_review_occurrences.tsv \
+  --aliases-output speaker_review_aliases.tsv
+```
+
+Gli output sono:
+
+* `speaker_review_occurrences.tsv`: una riga per ogni occorrenza ambigua o non assegnata, con il contesto del blocco;
+* `speaker_review_aliases.tsv`: raggruppamento delle occorrenze per ramo, legislatura e forma normalizzata dello speaker.
+
+È possibile limitare l’estrazione a una sola legislatura:
+
+```bash
+python3 scripts/matcher/extract_speaker_review.py \
+  --predictions-json predictions_multiclass.json \
+  --speaker-matches speaker_matches.json \
+  --occurrences-output speaker_review_occurrences.tsv \
+  --aliases-output speaker_review_aliases.tsv \
+  --legislatura regno_01
+```
+
+## Preparazione del file di revisione manuale
+
+Lo script `prepare_speaker_manual_review.py` combina le occorrenze problematiche con i candidati originali presenti in `speaker_matches.json`.
+
+Esempio:
+
+```bash
+python3 scripts/matcher/prepare_speaker_manual_review.py \
+  --occurrences speaker_review_occurrences.tsv \
+  --speaker-matches speaker_matches.json \
+  --output speaker_manual_review.tsv
+```
+
+Il file `speaker_manual_review.tsv` contiene:
+
+* i dati identificativi del blocco;
+* `raw_speaker` e `clean_speaker`;
+* il tipo di problema;
+* il metodo di matching;
+* il nome e l’URI di ciascun candidato;
+* il contesto testuale;
+* campi vuoti per registrare la decisione manuale.
+
+I principali campi da compilare sono:
+
+* `decision`;
+* `scope`;
+* `selected_persona`;
+* `selected_name`;
+* `note`.
+
+Gli script di revisione preparano i dati, ma non modificano automaticamente `speaker_matches.json` o `nicknames.tsv`.
+
+## Aggiornamento di `nicknames.tsv`
+
+Dopo la revisione manuale, i casi inizialmente classificati come `unassigned` e risolti con certezza devono essere registrati in:
+
+```text
+scripts/matcher/nicknames.tsv
+```
+
+Il file deve contenere le colonne:
+
+```text
+persona nickname  legislatura
+```
+
+Per ciascun caso risolto devono essere indicati:
+
+* `persona`: URI della persona selezionata;
+* `nickname`: forma alternativa o forma OCR da riconoscere;
+* `legislatura`: URI della legislatura nella quale la forma è attestata.
+
+In genere, il valore di `nickname` corrisponde a `clean_speaker`, salvo che sia necessario conservare una diversa variante grafica.
+
+Esempio:
+
+```text
+http://dati.camera.it/ocd/persona.rdf/pr12345 DE AZEGLIO  http://dati.camera.it/ocd/legislatura.rdf/regno_01
+```
+
+La legislatura deve essere sempre specificata: la stessa forma può identificare persone diverse in legislature differenti.
+
+Dopo aver aggiornato `nicknames.tsv`, il matcher deve essere eseguito nuovamente. Poiché `run_matcher_regni_mancanti.sh` non sovrascrive un `speaker_matches.json` già esistente, è possibile eseguire il singolo matcher creando inizialmente un nuovo output:
+
+```bash
+python3 scripts/matcher/match_speakers.py \
+  predictions_multiclass.json \
+  ANAGRAFICA.tsv \
+  speaker_matches_revised.json \
+  --nicknames-tsv scripts/matcher/nicknames.tsv
+```
+
+Dopo aver verificato il nuovo JSON, questo può sostituire il precedente `speaker_matches.json`.
+
+È poi opportuno rigenerare i TSV di revisione per controllare quali casi rimangano ancora ambigui o non assegnati.
 
 ## Esecuzione del singolo matcher
 
