@@ -49,6 +49,8 @@ BLOCK_TYPE_NAMES = {
 }
 
 PAGE_MATTER_TYPES = {"header", "footer"}
+SPEAKER_BLOCK_TYPES = {"speech", "speechnotext"}
+SPEAKER_START_LABELS = {"B-speech", "B-speechnotext"}
 
 
 @dataclass
@@ -413,11 +415,12 @@ def reconstruct_groups(
 
                 continuing_hidden_speech = (
                     prefix == "H"
-                    and functional_type == "speech"
+                    and functional_type in SPEAKER_BLOCK_TYPES
                     and only_page_matter_so_far
                     and pages_are_adjacent
                     and previous_page_last_content_group is not None
-                    and previous_page_last_content_group.functional_type == "speech"
+                    and previous_page_last_content_group.functional_type
+                    == functional_type
                 )
 
                 continuing_previous_page = (
@@ -445,14 +448,17 @@ def reconstruct_groups(
                     orphan = prefix == "I"
                     if orphan:
                         stats.orphan_i[predicted_label or "<vuota>"] += 1
-                    if prefix == "H" and functional_type == "speech":
+                    if (
+                        prefix == "H"
+                        and functional_type in SPEAKER_BLOCK_TYPES
+                    ):
                         stats.orphan_h_speech += 1
 
                     speaker_match = None
-                    if predicted_label in {
-                        "B-speech",
-                        "B-presidencydeclaration",
-                    }:
+                    if predicted_label in (
+                        SPEAKER_START_LABELS
+                        | {"B-presidencydeclaration"}
+                    ):
                         speaker_match = match_lookup.get(
                             (page_number, block_seq)
                         )
@@ -567,16 +573,6 @@ def add_speaker_triples(
         stats.speaker_no_record += 1
         return
 
-    presiding_role = str(match.get("presiding_role") or "").strip()
-    if presiding_role:
-        graph.add(
-            (
-                block_uri,
-                BASE["presidingRole"],
-                Literal(presiding_role, lang="it"),
-            )
-        )
-
     candidates = match.get("candidates") or []
 
     if len(candidates) == 1:
@@ -631,16 +627,6 @@ def add_presidency_triples(
     if match is None:
         stats.presidency_no_record += 1
         return
-
-    presiding_role = str(match.get("presiding_role") or "").strip()
-    if presiding_role:
-        graph.add(
-            (
-                block_uri,
-                BASE["presidingRole"],
-                Literal(presiding_role, lang="it"),
-            )
-        )
 
     candidates = match.get("candidates") or []
 
@@ -703,7 +689,7 @@ def add_group_triples(
         page_uri = page_uri_by_number[page_number]
         graph.add((block_uri, BASE["hasPage"], page_uri))
 
-    if group.start_label == "B-speech":
+    if group.start_label in SPEAKER_START_LABELS:
         add_speaker_triples(
             graph, block_uri, group.speaker_match, stats
         )
@@ -803,8 +789,8 @@ def print_summary(stats: Stats, graph: Graph, output: Path) -> None:
         "- continuazioni tra pagine collegate: "
         f"{stats.cross_page_continuations}"
     )
-    print(f"- H-speech risolti: {stats.hidden_speech_resolved}")
-    print(f"- H-speech orfani: {stats.orphan_h_speech}")
+    print(f"- H-speech/H-speechnotext risolti: {stats.hidden_speech_resolved}")
+    print(f"- H-speech/H-speechnotext orfani: {stats.orphan_h_speech}")
     print(f"- I-* orfani: {sum(stats.orphan_i.values())}")
 
     for label, count in stats.orphan_i.most_common():
@@ -813,7 +799,7 @@ def print_summary(stats: Stats, graph: Graph, output: Path) -> None:
     print(f"- speaker con URI univoca: {stats.speaker_unique}")
     print(f"- speaker ambigui: {stats.speaker_ambiguous}")
     print(f"- speaker senza candidato: {stats.speaker_no_candidate}")
-    print(f"- B-speech senza record di matching: {stats.speaker_no_record}")
+    print(f"- B-speech/B-speechnotext senza record di matching: {stats.speaker_no_record}")
     print(f"- presidenze con URI univoca: {stats.presidency_unique}")
     print(f"- presidenze ambigue: {stats.presidency_ambiguous}")
     print(f"- presidenze senza candidato: {stats.presidency_no_candidate}")

@@ -1,5 +1,5 @@
 """
-Match B-speech blocks from output_con_legislatura.json to parliamentarians
+Match B-speech and B-speechnotext blocks from output_con_legislatura.json to parliamentarians
 in elenco-parlamentari.tsv, using legislature-filtered string matching.
 """
 
@@ -763,7 +763,8 @@ def match_name_to_parl(
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Match B-speech blocks from a JSON file to parliamentarians "
+            "Match B-speech and B-speechnotext blocks from a JSON file "
+            "to parliamentarians "
             "from a legislature-aware TSV."
         )
     )
@@ -844,7 +845,10 @@ def main():
             # Il modello binario salva la classificazione effettiva
             # nel campo predicted_label. Il campo label contiene invece
             # soltanto l'etichetta fittizia usata per costruire il dataset.
-            if block.get("predicted_label") != "B-speech":
+            if block.get("predicted_label") not in {
+                "B-speech",
+                "B-speechnotext",
+            }:
                 continue
 
             # I nomi espliciti dei parlanti devono trovarsi nei blocchi
@@ -894,7 +898,7 @@ def main():
     print("\n--- Stats ---")
     total = stats["matched"] + stats["unmatched"]
     pct = f" ({100*stats['matched']/total:.1f}%)" if total else ""
-    print(f"  B-speech blocks processed : {total}")
+    print(f"  B-speech/B-speechnotext processed: {total}")
     print(f"  Skipped (ruoli/generici)  : {stats['skipped']}")
     print(f"  No dot in text            : {stats['no_dot']}")
     print(f"  Matched                   : {stats['matched']}{pct}")

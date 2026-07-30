@@ -4,7 +4,7 @@
 
 Lo script:
 - identifica la persona nominata nei blocchi B-presidencydeclaration;
-- propaga la presidenza ai turni B-speech che iniziano con PRESIDENTE;
+- propaga la presidenza ai turni B-speech e B-speechnotext che iniziano con PRESIDENTE;
 - conserva tutti i risultati già presenti in speaker_matches.json;
 - produce un nuovo JSON di matching, senza modificare gli input.
 
@@ -131,10 +131,32 @@ def block_sort_key(block: dict[str, Any]) -> int:
 
 
 def extract_president_name(text: Any) -> str | None:
-    """Estrae la parte onomastica da una dichiarazione di presidenza."""
+    """Estrae la persona nominata in una dichiarazione di presidenza.
+
+    Gestisce sia le formule con il ruolo dopo il nome, per esempio
+    ``PRESIDENZA DI VINCENZO GIOBERTI PRESIDENTE``, sia quelle con
+    il ruolo prima del nome, per esempio
+    ``PRESIDENZA DEL VICE-PRESIDENTE MAMIANI``.
+    """
     value = str(text or "")
     value = re.sub(r"[*_]+", " ", value)
     value = " ".join(value.split()).strip(" .,:;–—-")
+
+    # Rimuove la formula iniziale e l'eventuale preposizione articolata.
+    value = re.sub(
+        r"^PRESIDENZA\b",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    ).strip(" .,:;–—-")
+
+    # Le alternative più lunghe devono precedere DEL e DI.
+    value = re.sub(
+        r"^(?:DELL['’]|D['’]|DEGLI|DELLE|DELLA|DELLO|DEI|DEL|DI)\s*",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    ).strip(" .,:;–—-")
 
     role_matches = list(ROLE_RE.finditer(value))
     if len(role_matches) != 1:
@@ -142,7 +164,12 @@ def extract_president_name(text: Any) -> str | None:
         # automaticamente.
         return None
 
-    name = value[role_matches[0].end():].strip(" .,:;–—-")
+    role_match = role_matches[0]
+    before_role = value[:role_match.start()].strip(" .,:;–—-")
+    after_role = value[role_match.end():].strip(" .,:;–—-")
+
+    # Il nome può precedere o seguire il ruolo.
+    name = before_role or after_role
 
     previous = None
     while name and name != previous:
@@ -297,9 +324,10 @@ def main() -> int:
 
                     continue
 
-                if predicted_label == "B-speech" and is_president_speech(
-                    block.get("text")
-                ):
+                if predicted_label in {
+                    "B-speech",
+                    "B-speechnotext",
+                } and is_president_speech(block.get("text")):
                     existing = matches_by_key.get(key)
                     if existing is not None and candidate_count(existing) == 1:
                         continue
