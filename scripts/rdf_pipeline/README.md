@@ -21,9 +21,13 @@ scripts/rdf_pipeline/
 Genera il file RDF/Turtle a partire da:
 
 * predizioni multiclasse dei blocchi;
-* risultati del matching degli speaker;
+* risultati del matching degli speaker e delle presidenze;
 * tabella di corrispondenza delle legislature;
 * ontologia IPSA.
+
+Per la generazione completa deve essere utilizzato `speaker_matches_context.json`, prodotto da `resolve_document_context.py` a partire da `speaker_matches.json`.
+
+Il file contestualizzato conserva i risultati del matching degli speaker e aggiunge i record relativi alle dichiarazioni di presidenza.
 
 #### Ricostruzione degli `H-speech`
 
@@ -43,6 +47,37 @@ In questo caso, i paragrafi delle due pagine vengono aggregati nello stesso
 
 Se queste condizioni non sono soddisfatte, l’`H-speech` apre un blocco
 autonomo e viene segnalato nel riepilogo come `H-speech` orfano.
+
+#### Gestione delle presidenze
+
+Le dichiarazioni di presidenza sono rappresentate dai blocchi con etichetta `B-presidencydeclaration`.
+
+La risoluzione del nome del presidente viene eseguita prima della generazione RDF da:
+
+```text
+scripts/matcher/resolve_document_context.py
+```
+
+Lo script combina:
+
+```text
+predictions_multiclass.json
+speaker_matches.json
+```
+
+e produce:
+
+```text
+speaker_matches_context.json
+```
+
+Quando una dichiarazione di presidenza è associata a un solo candidato dotato di URI personale, `generate_rdf.py` aggiunge al blocco funzionale la tripla:
+
+```turtle
+<blocco> ipsa:presidenza <URI_della_persona> .
+```
+
+I casi ambigui, privi di candidati o privi di un record di matching non ricevono una URI, ma vengono conteggiati nel riepilogo finale della generazione.
 
 ### `run_rdf_regno.py`
 
@@ -83,10 +118,14 @@ DATA_ROOT/
 ├── regno_01_full/
 │   ├── camera/
 │   │   ├── predictions_multiclass.json
-│   │   └── speaker_matches.json
+│   │   ├── speaker_matches.json
+│   │   ├── speaker_matches_context.json
+│   │   └── rdf/
 │   └── senato/
 │       ├── predictions_multiclass.json
-│       └── speaker_matches.json
+│       ├── speaker_matches.json
+│       ├── speaker_matches_context.json
+│       └── rdf/
 ├── regno_02_full/
 │   ├── camera/
 │   └── senato/
@@ -95,28 +134,33 @@ DATA_ROOT/
 
 ## Input
 
-Per ciascun ramo sono necessari:
+Per la generazione RDF completa sono necessari, per ciascun ramo:
 
 ```text
 predictions_multiclass.json
+speaker_matches_context.json
+```
+
+Il file `predictions_multiclass.json` contiene i blocchi classificati dal modello LayoutLMv3.
+Il file `speaker_matches_context.json` contiene:
+* le associazioni tra gli speaker riconosciuti e le rispettive URI personali;
+* le associazioni tra le dichiarazioni di presidenza e le URI dei presidenti;
+* gli eventuali casi ambigui o non risolti.
+
+Il file viene prodotto dal passaggio:
+
+```text
 speaker_matches.json
+        ↓
+resolve_document_context.py
+        ↓
+speaker_matches_context.json
 ```
+Utilizzando direttamente `speaker_matches.json`, le associazioni degli speaker possono essere conservate, ma non sono disponibili i record aggiunti successivamente per le dichiarazioni di presidenza.
+È possibile fornire al runner di un singolo regno un file di matching specifico tramite l’opzione:
+`--speaker-matches`
+Per includere le presidenze, il file indicato deve contenere anche i record relativi ai blocchi B-presidencydeclaration; normalmente si utilizza `speaker_matches_context.json`.
 
-Il file delle predizioni contiene i blocchi classificati dal modello LayoutLMv3.
-
-Il file dei match contiene le associazioni tra gli speaker riconosciuti e le rispettive URI personali.
-
-È possibile fornire al runner di un singolo regno un file di matching alternativo tramite l’opzione:
-
-```text
---speaker-matches
-```
-
-Questo è utile, per esempio, quando per il Senato viene usato:
-
-```text
-speaker_matches_combinati.json
-```
 
 ## Output
 
@@ -190,7 +234,7 @@ python3 scripts/rdf_pipeline/run_rdf_regno.py \
   --regno 02 \
   --ramo senato \
   --speaker-matches \
-  /percorso/regno_02_full/senato/speaker_matches_combinati.json
+  /percorso/regno_02_full/senato/speaker_matches_context.json
 ```
 
 ## Simulazione
