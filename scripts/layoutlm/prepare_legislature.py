@@ -7,7 +7,17 @@ import re
 import shutil
 from pathlib import Path
 
+from PIL import Image
 
+
+
+# Le immagini oltre questa soglia vengono ridotte (vedi copy_image).
+# Una pagina A4 a 400 dpi è di circa 15 milioni di pixel.
+MAX_PIXELS = 40_000_000
+
+# Le immagini sorgente sono locali e fidate: si disattiva il controllo di
+# Pillow contro le "decompression bomb", che blocca le pagine più grandi.
+Image.MAX_IMAGE_PIXELS = None
 
 PAGE_RE = re.compile(
     r"^(?P<document_id>.+)_page_(?P<page_number>\d+)\.json$"
@@ -46,12 +56,46 @@ def parse_args():
         help="Identificativo normalizzato della legislatura.",
     )
 
+    parser.add_argument(
+        "--dots-images",
+        action="store_true",
+        help=(
+            "Usa le immagini di visualizzazione DoTS (con i box dei "
+            "blocchi) invece dei JPG puliti in <documento>.pdf.out. "
+            "Serve solo per riprodurre il comportamento precedente."
+        ),
+    )
+
     return parser.parse_args()
 
 
-def find_image(page_json):
+def find_clean_image(page_json, document_id, page_source_number):
     """
-    Cerca l'immagine corrispondente al JSON nella stessa cartella.
+    Cerca il JPG pulito generato da Ghostscript per la pagina.
+
+    Struttura attesa:
+      <cartella>/<id>.out/<id>/<id>_page_N.json  (N parte da 0)
+      <cartella>/<id>.pdf.out/page-NNN.jpg       (NNN parte da 1)
+    """
+
+    document_dir = page_json.parent.parent.parent
+    candidate = (
+        document_dir
+        / f"{document_id}.pdf.out"
+        / f"page-{page_source_number + 1:03d}.jpg"
+    )
+
+    if candidate.is_file():
+        return candidate
+
+    return None
+
+
+def find_dots_image(page_json):
+    """
+    Cerca l'immagine DoTS corrispondente al JSON nella stessa cartella.
+
+    Questa immagine contiene la visualizzazione dei box dei blocchi.
     """
 
     stem = page_json.with_suffix("")
@@ -65,15 +109,35 @@ def find_image(page_json):
     return None
 
 
-def copy_image(source_image, destination):
+def copy_image(source_image, destination, max_pixels=MAX_PIXELS):
     """
-    Copia l'immagine DoTS senza ricodificarla.
+    Copia l'immagine senza ricodificarla.
 
-    Il formato originale viene conservato: JPG/JPEG rimangono JPEG
-    e gli eventuali PNG rimangono PNG.
+    Le immagini oltre max_pixels (alcuni PDF hanno pagine di formato molto
+    grande) vengono ridotte mantenendo le proporzioni e salvate di nuovo
+    nello stesso formato. LayoutLMv3 ridimensiona comunque l'immagine a
+    224x224 e i bbox sono normalizzati sui blocchi, quindi la riduzione non
+    cambia l'input del modello.
     """
 
-    shutil.copy2(source_image, destination)
+    with Image.open(source_image) as image:
+        width, height = image.size
+
+        if width * height <= max_pixels:
+            shutil.copy2(source_image, destination)
+            return False
+
+        scale = (max_pixels / (width * height)) ** 0.5
+        size = (int(width * scale), int(height * scale))
+
+        # Per i JPEG decodifica direttamente a risoluzione ridotta.
+        image.draft("RGB", size)
+        image.convert("RGB").resize(size, Image.LANCZOS).save(
+            destination,
+            quality=95,
+        )
+
+    return True
 
 
 def load_blocks(page_json):
@@ -149,7 +213,16 @@ def main():
         page_json,
     ) in source_pages:
 
-        image_path = find_image(page_json)
+        if args.dots_images:
+            image_path = find_dots_image(page_json)
+            missing_reason = "immagine DoTS mancante"
+        else:
+            image_path = find_clean_image(
+                page_json,
+                document_id,
+                page_source_number,
+            )
+            missing_reason = "immagine pulita mancante"
 
         if image_path is None:
             skipped.append(
@@ -157,7 +230,7 @@ def main():
                     document_id,
                     page_source_number,
                     str(page_json),
-                    "immagine mancante",
+                    missing_reason,
                 ]
             )
             continue

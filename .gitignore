@@ -6,3 +6,4 @@ dots
 .DS_Store
 venv
 data-orig/*.pdf
+__pycache__

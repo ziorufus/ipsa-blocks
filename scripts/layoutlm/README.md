@@ -25,7 +25,9 @@ Lo script produce:
 * `skipped.csv`;
 * una cartella `images/` contenente le immagini associate alle pagine.
 
-Le immagini JPG, JPEG o PNG vengono copiate senza ricodifica. Il nome dell’immagine viene registrato nel campo `image_file` di ogni pagina.
+Per ogni pagina viene copiato, senza ricodifica, il JPG pulito generato da Ghostscript (`<documento>.pdf.out/page-NNN.jpg`), coerente con le immagini usate per l’addestramento (vedi `build_gold_images.py`). Il nome dell’immagine viene registrato nel campo `image_file` di ogni pagina; le pagine senza JPG pulito finiscono in `skipped.csv`.
+
+Con `--dots-images` lo script usa invece l’immagine di visualizzazione DoTS (`<documento>_page_N.jpg`, con i box dei blocchi disegnati), come nella versione precedente.
 
 Esempio:
 
@@ -247,6 +249,43 @@ attraverso il loro identificativo.
 shasum -a 256 \
   new_train.json \
   strat-250-test-bbox.json
-Per riprodurre integralmente l’addestramento multimodale sono necessarie
-anche le immagini originali delle pagine, che non sono incluse nella
-cartella.
+```
+
+### Immagini delle pagine gold
+
+Le immagini non sono incluse nella cartella. Si ricostruiscono dai JPG
+originali di `parlamento/pdf` con `build_gold_images.py`:
+
+```bash
+python scripts/layoutlm/build_gold_images.py \
+  /path/to/parlamento/pdf \
+  /path/to/images_gold
+```
+
+Lo script legge le pagine da `new_train.json` e `strat-250-test-bbox.json`
+e la loro sorgente da `gold_pages_sources.csv`, poi copia
+`<pdf>.out/page-NNN.jpg` in `images_gold/<page>.jpg`. Le immagini hanno lo
+stesso identificativo del campo `page`, quindi l'addestramento va lanciato
+con `--image-dir /path/to/images_gold` e **senza** `--legacy-missing-page`.
+
+Con `--dots-images` lo script copia invece le immagini di visualizzazione
+DoTS (`<id>.out/<id>/<id>_page_N.jpg`, con i box dei blocchi), da usare
+insieme a `prepare_legislature.py --dots-images`. Le pagine prive di output
+DoTS vengono elencate e lo script termina con errore: attualmente mancano le
+24 pagine provenienti dalle cartelle `camera/repubblica_*/_l/`.
+
+`gold_pages_sources.csv` è stato ricostruito così:
+
+- pagine 1–300: `data-orig/gold-resoconti-2-leg.csv` (riga = pagina);
+- pagina 301: pagina bianca, lo script genera un'immagine bianca;
+- pagine 302–380: `data-orig/silver-resoconti-new.csv` (riga = pagina − 301);
+- pagina 381: assente dai manifest, è la pagina 37 di
+  `senato/10/1990/317963.pdf`;
+- pagine 382–460: `data-orig/silver-resoconti-new.csv` (riga = pagina − 302); la
+  riga 109 corrisponde alla pagina 411, eliminata dal gold.
+
+Tutte le corrispondenze sono state verificate confrontando il testo gold con
+l'output DoTS (o con il TSV di Tesseract per i documenti senza DoTS).
+
+Le immagini usate nell'addestramento originale (`gold-new.pdf`) contenevano,
+dalla pagina 302 in poi, la visualizzazione di DoTS con i box dei blocchi.
